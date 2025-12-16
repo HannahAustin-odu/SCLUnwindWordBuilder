@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Inside SCL — ODU Word Builder</title>
+<style>
+  :root{
+    /* ODU palette */
+    --odu-deep: #043657;    /* dark/navy */
+    --odu-steel: #828A8F;   /* neutral gray */
+    --odu-sky: #98C5EA;     /* light blue */
+    --odu-blue: #1C4BFF;    /* bright blue (accent) */
+    --odu-aqua: #B0F1FA;    /* pale aqua */
+    --odu-cream: #F8EDE4;   /* warm cream bg */
+    --odu-tan: #E5D1B5;     /* tan accent */
+    --odu-white: #FFFFFF;   /* white */
+    --odu-fog: #E6EAEE;     /* light gray */
+    --focus: 3px solid #B0F1FA;
+    --radius: 10px;
+    --max-width: 980px;
+  }
+
+  /* Basic layout */
+  body{
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    margin: 0;
+    color: var(--odu-deep);
+    background: linear-gradient(180deg, var(--odu-cream) 0%, var(--odu-fog) 100%);
+    display: flex;
+    justify-content: center;
+    padding: 28px;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .wrap{
+    width: 100%;
+    max-width: var(--max-width);
+    background: var(--odu-white);
+    border-radius: var(--radius);
+    box-shadow: 0 6px 20px rgba(4,54,87,0.12);
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+  }
+
+  header{
+    grid-column: 1 / -1;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    margin-bottom:4px;
+  }
+  .logo{
+    width:56px;
+    height:56px;
+    border-radius:8px;
+    background: linear-gradient(135deg, var(--odu-blue), var(--odu-deep));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--odu-white);
+    font-weight:700;
+    box-shadow: 0 4px 8px rgba(28,75,255,0.12);
+    flex-shrink:0;
+  }
+  h1{
+    font-size:20px;
+    margin:0;
+    color:var(--odu-deep);
+  }
+  p.subtitle{
+    margin:0;
+    color:var(--odu-steel);
+    font-size:13px;
+  }
+
+  /* Main game area */
+  .main {
+    padding:18px;
+    border-radius:8px;
+    background: linear-gradient(180deg, var(--odu-fog), rgba(224,230,237,0.6));
+    min-height: 320px;
+  }
+
+  .level-bar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:16px;
+  }
+  .level-title{
+    font-size:18px;
+    color:var(--odu-deep);
+    font-weight:700;
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .chip{
+    background:var(--odu-sky);
+    color:var(--odu-deep);
+    padding:6px 10px;
+    border-radius:999px;
+    font-weight:600;
+    font-size:13px;
+    box-shadow: 0 2px 6px rgba(4,54,87,0.06);
+  }
+
+  .scramble {
+    margin: 12px 0 18px 0;
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+  .tile{
+    background:var(--odu-white);
+    border:2px solid var(--odu-deep);
+    color:var(--odu-deep);
+    min-width:48px;
+    min-height:48px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:20px;
+    font-weight:700;
+    border-radius:8px;
+    box-shadow: 0 3px 8px rgba(4,54,87,0.06);
+  }
+
+  .controls{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    margin-bottom:10px;
+  }
+  input[type="text"]{
+    flex:1;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1.5px solid var(--odu-fog);
+    font-size:16px;
+  }
+  button{
+    background:var(--odu-blue);
+    color:var(--odu-white);
+    padding:9px 14px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:700;
+    box-shadow: 0 6px 14px rgba(28,75,255,0.12);
+  }
+  button.secondary{
+    background:transparent;
+    color:var(--odu-deep);
+    border:1.5px solid var(--odu-fog);
+    font-weight:600;
+  }
+  button.ghost{
+    background:transparent;
+    color:var(--odu-deep);
+    border: none;
+    text-decoration: underline;
+    font-size:13px;
+  }
+
+  button:focus, input:focus{
+    outline: none;
+    box-shadow: var(--focus);
+  }
+
+  .meta {
+    display:flex;
+    gap:12px;
+    color:var(--odu-steel);
+    font-size:13px;
+    margin-top:6px;
+  }
+
+  /* Right panel - found words */
+  .side {
+    padding:18px;
+    border-radius:8px;
+    background:linear-gradient(180deg, var(--odu-cream), var(--odu-white));
+    min-height:320px;
+  }
+  .side h3{
+    margin-top:0;
+  }
+  .found-list{
+    margin-top:10px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    max-height:260px;
+    overflow:auto;
+    padding-right:8px;
+  }
+  .found-item{
+    background:var(--odu-aqua);
+    color:var(--odu-deep);
+    border-radius:6px;
+    padding:8px 10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-weight:700;
+  }
+
+  .status{
+    margin-top:12px;
+    color:var(--odu-deep);
+    font-weight:700;
+  }
+
+  /* congrats modal (inline) */
+  .congrats {
+    grid-column: 1 / -1;
+    margin-top:14px;
+    padding:16px;
+    border-radius:10px;
+    background:linear-gradient(90deg, rgba(176,241,250,0.2), rgba(152,197,234,0.12));
+    display:none;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .congrats.show{ display:flex; }
+
+  /* small screens */
+  @media (max-width:900px){
+    .wrap{ grid-template-columns: 1fr; }
+    .side { order: 2; }
+    .main { order: 1; }
+  }
+
+  /* Accessibility helpers */
+  .sr-only { 
+    position: absolute !important;
+    height: 1px; width: 1px; 
+    overflow: hidden; clip: rect(1px, 1px, 1px, 1px); white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+  <main class="wrap" role="main" aria-labelledby="title">
+    <header>
+      <div class="logo" aria-hidden="true">ODU</div>
+      <div>
+        <h1 id="title">Inside SCL — ODU Word Builder</h1>
+        <p class="subtitle">Staff challenge: Make as many words as you can from the letters. One themed word per level.</p>
+      </div>
+    </header>
+
+    <section class="main" aria-labelledby="levelHeading">
+      <div class="level-bar">
+        <div class="level-title">
+          <span id="levelIdx">Level 1</span>
+          <span class="chip" id="levelWordLength" aria-hidden="true">7 letters</span>
+        </div>
+        <div class="meta" aria-hidden="true">
+          <div><strong>Score:</strong> <span id="score">0</span></div>
+          <div><strong>Level:</strong> <span id="levelName">monarch</span></div>
+        </div>
+      </div>
+
+      <h2 id="levelHeading" class="sr-only">Word game area</h2>
+
+      <div>
+        <p style="margin:0 0 8px 0; color:var(--odu-steel)">Use the letters below to build words (min 3 letters). Reuse letters only as often as they appear.</p>
+
+        <div class="scramble" id="scrambleArea" aria-live="polite" aria-atomic="true"></div>
+
+        <div class="controls" role="form" aria-label="word input and submit">
+          <label for="wordInput" class="sr-only">Enter word</label>
+          <input id="wordInput" type="text" inputmode="text" autocomplete="off" placeholder="Type a word and press Enter" aria-describedby="hint" />
+          <button id="submitBtn" aria-label="Submit word">Submit</button>
+          <button id="finishBtn" class="secondary" aria-label="Finish level">Finish Level</button>
+        </div>
+
+        <div id="hint" class="meta" aria-hidden="false">
+          <div>Min length: <strong>3</strong></div>
+          <div>Unique words count toward your score</div>
+        </div>
+
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <aside class="side" aria-labelledby="foundHeading">
+      <h3 id="foundHeading">Found words</h3>
+      <div class="found-list" id="foundList" aria-live="polite"></div>
+
+      <div style="margin-top:14px;">
+        <strong>Level progress</strong>
+        <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+          <div style="font-size:13px; color:var(--odu-steel)">Words this level:</div>
+          <div style="font-weight:800; color:var(--odu-deep); font-size:18px" id="foundCount">0</div>
+        </div>
+      </div>
+
+      <div style="margin-top:18px;">
+        <button id="resetLevel" class="ghost" aria-label="Reset level">Reset level</button>
+      </div>
+    </aside>
+
+    <!-- Inline congrats panel -->
+    <div class="congrats" id="congratsPanel" role="dialog" aria-modal="false" aria-labelledby="congratsTitle">
+      <div>
+        <h3 id="congratsTitle">Congratulations!</h3>
+        <p id="congratsText" style="margin:6px 0 0 0; color:var(--odu-deep); font-weight:700"></p>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="nextLevel" aria-label="Next level">Next Level</button>
+      </div>
+    </div>
+
+  </main>
+
+<script>
+/*
+  ODU Word Builder
+  - Each level uses one themed word (letters preserved).
+  - Users form words from those letters; words must be at least 3 letters.
+  - Duplicate submissions blocked. No external dictionary used (internal play).
+  - Accessible: keyboard submit, aria live regions, visible focus.
+*/
+
+const levels = [
+  {name: 'monarch'},
+  {name: 'university'},
+  {name: 'virginia'},
+  {name: 'norfolk'},
+  {name: 'big blue'},
+  {name: 'crown'},
+  {name: 'spirit'}
+];
+
+let levelIndex = 0;
+let currentSource = '';
+let scrambledLetters = [];
+let foundSet = new Set();
+let score = 0;
+
+// DOM
+const scrambleArea = document.getElementById('scrambleArea');
+const levelIdx = document.getElementById('levelIdx');
+const levelWordLength = document.getElementById('levelWordLength');
+const levelNameEl = document.getElementById('levelName');
+const wordInput = document.getElementById('wordInput');
+const submitBtn = document.getElementById('submitBtn');
+const finishBtn = document.getElementById('finishBtn');
+const foundList = document.getElementById('foundList');
+const status = document.getElementById('status');
+const foundCount = document.getElementById('foundCount');
+const scoreEl = document.getElementById('score');
+const resetBtn = document.getElementById('resetLevel');
+const congratsPanel = document.getElementById('congratsPanel');
+const congratsText = document.getElementById('congratsText');
+const nextLevelBtn = document.getElementById('nextLevel');
+
+// Utilities
+function normalizeSource(s){
+  // remove spaces, treat letters only, lowercased
+  return s.replace(/\s+/g,'').toLowerCase();
+}
+function letterCountsFrom(word){
+  const counts = {};
+  for(const ch of word){
+    counts[ch] = (counts[ch]||0) + 1;
+  }
+  return counts;
+}
+function canFormWordFromSource(word, sourceCounts){
+  // word is lowercase, only letters allowed
+  const wCounts = {};
+  for(const ch of word){
+    if(!/^[a-z]$/.test(ch)) return false; // invalid char
+    wCounts[ch] = (wCounts[ch]||0) + 1;
+    if(wCounts[ch] > (sourceCounts[ch]||0)) return false;
+  }
+  return true;
+}
+function shuffleArray(arr){
+  // Fisher-Yates
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random() * (i+1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Game functions
+function loadLevel(){
+  foundSet.clear();
+  foundList.innerHTML = '';
+  scoreEl.textContent = score;
+  congratsPanel.classList.remove('show');
+
+  const level = levels[levelIndex];
+  currentSource = normalizeSource(level.name);
+  levelIdx.textContent = `Level ${levelIndex + 1} of ${levels.length}`;
+  levelWordLength.textContent = `${currentSource.length} letters`;
+  levelNameEl.textContent = level.name;
+
+  // scramble but preserve counts; show tiles
+  scrambledLetters = shuffleArray(currentSource.split(''));
+  renderScramble();
+  updateFoundCount();
+  status.textContent = `Ready. Build words from the letters above.`;
+  wordInput.value = '';
+  wordInput.focus();
+}
+
+function renderScramble(){
+  scrambleArea.innerHTML = '';
+  for(const ch of scrambledLetters){
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.textContent = ch.toUpperCase();
+    tile.setAttribute('aria-hidden','true');
+    scrambleArea.appendChild(tile);
+  }
+}
+
+function updateFoundCount(){
+  foundCount.textContent = foundSet.size;
+  scoreEl.textContent = score;
+}
+
+// Validate and add
+function submitWord(){
+  let raw = wordInput.value || '';
+  const word = raw.toLowerCase().trim();
+  if(!word){
+    status.textContent = 'Please enter a word.';
+    return;
+  }
+  if(word.length < 3){
+    status.textContent = 'Words must be at least 3 letters.';
+    wordInput.select();
+    return;
+  }
+  // only alphabet characters allowed
+  if(!/^[a-z]+$/.test(word)){
+    status.textContent = 'Please use letters only (A–Z).';
+    wordInput.select();
+    return;
+  }
+
+  // check formation against source
+  const sourceCounts = letterCountsFrom(currentSource);
+  if(!canFormWordFromSource(word, sourceCounts)){
+    status.textContent = `Cannot form "${word}" from these letters.`;
+    wordInput.select();
+    return;
+  }
+
+  // prevent duplicates
+  if(foundSet.has(word)){
+    status.textContent = `You already found "${word}". Try another.`;
+    wordInput.select();
+    return;
+  }
+
+  // Accept word
+  foundSet.add(word);
+  addFoundListItem(word);
+  score += 1;
+  status.textContent = `Nice! "${word}" added.`;
+  wordInput.value = '';
+  wordInput.focus();
+  updateFoundCount();
+}
+
+function addFoundListItem(word){
+  const item = document.createElement('div');
+  item.className = 'found-item';
+  item.textContent = word;
+  const trash = document.createElement('button');
+  trash.textContent = 'Remove';
+  trash.style.background='transparent';
+  trash.style.border='none';
+  trash.style.cursor='pointer';
+  trash.style.fontWeight='700';
+  trash.style.color='var(--odu-deep)';
+  trash.setAttribute('aria-label', `Remove ${word}`);
+  trash.addEventListener('click', () => {
+    foundSet.delete(word);
+    score = Math.max(0, score-1);
+    item.remove();
+    status.textContent = `"${word}" removed.`;
+    updateFoundCount();
+  });
+  item.appendChild(trash);
+  foundList.prepend(item);
+}
+
+// Finish level -> show congrats with X words found
+function finishLevel(){
+  const count = foundSet.size;
+  congratsText.innerText = `You found ${count} word${count === 1 ? '' : 's'} in this level.`;
+  congratsPanel.classList.add('show');
+  congratsPanel.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+// Reset level: re-scramble and clear found words (score preserved or reset? We'll keep score cumulative)
+function resetLevel(){
+  foundSet.clear();
+  foundList.innerHTML = '';
+  score = 0;
+  updateFoundCount();
+  scrambledLetters = shuffleArray(currentSource.split(''));
+  renderScramble();
+  status.textContent = 'Level reset. Start again.';
+  wordInput.value = '';
+  wordInput.focus();
+}
+
+// Next level logic
+function goToNextLevel(){
+  // hide congrats, increment index
+  congratsPanel.classList.remove('show');
+  levelIndex++;
+  if(levelIndex >= levels.length){
+    // Game complete
+    status.textContent = `You've completed all levels — great work, Monarch! Final score: ${score}.`;
+    // show final message in congrats panel
+    congratsText.innerText = `You've completed all levels! Final score: ${score}. Thanks for playing.`;
+    congratsPanel.classList.add('show');
+    nextLevelBtn.disabled = true;
+    nextLevelBtn.textContent = 'All Done';
+    return;
+  }
+  // reset per-level state (found words cleared)
+  foundSet.clear();
+  foundList.innerHTML = '';
+  // keep running score or reset? We'll keep running cumulative as internal friendly play.
+  loadLevel();
+}
+
+// Event wiring
+submitBtn.addEventListener('click', submitWord);
+finishBtn.addEventListener('click', finishLevel);
+resetBtn.addEventListener('click', resetLevel);
+nextLevelBtn.addEventListener('click', goToNextLevel);
+
+// Keyboard enter to submit
+wordInput.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    submitWord();
+  }
+});
+
+// initialize
+loadLevel();
+
+</script>
+</body>
+</html>
